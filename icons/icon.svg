@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="20" fill="#FF0000"/>
+    <path d="M40 40 L88 64 L40 88 Z" fill="white"/>
+    <text x="64" y="110" font-family="Arial" font-size="24" fill="white" text-anchor="middle">YT</text>
+</svg> 

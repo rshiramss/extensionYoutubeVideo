@@ -1,0 +1,105 @@
+/* filepath: /Users/rishits/Documents/extensionYoutubeVideo/styles.css */
+.yt-summary-container {
+    background: #212121; /* Dark theme background */
+    border: 1px solid #383838; /* Dark border */
+    border-radius: 8px; /* Rounded corners */
+    padding: 16px;
+    margin: 16px 0; /* Margin above/below */
+    font-family: 'Roboto', Arial, sans-serif;
+    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.3); /* Stronger shadow for dark theme */
+    width: 100%; /* Full width */
+    color: #fff; /* White text for dark theme */
+}
+
+/* Light theme fallback */
+html[light] .yt-summary-container {
+    background: #f9f9f9;
+    color: #0f0f0f;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.yt-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #383838; /* Darker border for dark theme */
+}
+
+html[light] .yt-summary-header {
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.yt-summary-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #fff; /* White text for dark theme */
+}
+
+html[light] .yt-summary-title {
+    color: #0f0f0f;
+}
+
+.yt-summary-content {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #aaa; /* Light gray text for dark theme */
+}
+
+html[light] .yt-summary-content {
+    color: #606060;
+}
+
+.yt-summary-point {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #2d2d2d; /* Dark background for points */
+    border-radius: 4px;
+    border: 1px solid #383838;
+}
+
+html[light] .yt-summary-point {
+    background: #ffffff;
+    border: 1px solid #efefef;
+}
+
+.yt-summary-timestamp {
+    color: #3ea6ff; /* Blue for timestamps in dark theme */
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-block;
+    margin-bottom: 6px;
+}
+
+html[light] .yt-summary-timestamp {
+    color: #065fd4;
+}
+
+.yt-summary-timestamp:hover {
+    text-decoration: underline;
+}
+
+.yt-summary-loading {
+    text-align: center;
+    padding: 20px;
+    color: #aaa;
+}
+
+html[light] .yt-summary-loading {
+    color: #606060;
+}
+
+.yt-summary-error {
+    color: #ff6e6e;
+    padding: 12px;
+    background: rgba(255, 0, 0, 0.1);
+    border-radius: 4px;
+    margin-top: 12px;
+}
+
+html[light] .yt-summary-error {
+    color: #cc0000;
+    background: #ffebee;
+}
