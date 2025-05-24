@@ -39,5 +39,8 @@
       "matches": ["https://www.youtube.com/*"],
       "exclude_matches": ["**/__pycache__/*"]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' https://cdn.jsdelivr.net; object-src 'self';"
+  }
 } 

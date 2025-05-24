@@ -109,7 +109,7 @@ async function fetchAllNotes() {
             
             const timestamps = document.createElement('p');
             timestamps.className = 'note-timestamps';
-            timestamps.textContent = `Created: ${new Date(note.created_at).toLocaleString()} | Updated: ${new Date(note.updated_at).toLocaleString()}`;
+            timestamps.textContent = `Created: ${new Date(note.created_at).toUTCString()} | Updated: ${new Date(note.updated_at).toUTCString()}`;
             noteItem.appendChild(timestamps);
 
             notesContainer.appendChild(noteItem);

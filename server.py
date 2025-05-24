@@ -8,6 +8,8 @@ import os
 from dotenv import load_dotenv
 import logging
 import datetime
+import re
+import collections
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -420,6 +422,53 @@ def get_watched_videos(user_db_id):
         return jsonify(videos_data), 200
     except Exception as e:
         logger.error(f"Unexpected error in get_watched_videos: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/users/<int:user_db_id>/mind_map_data', methods=['GET'])
+def get_mind_map_data(user_db_id):
+    try:
+        user = User.query.get(user_db_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Fetch Watched Videos
+        watched_videos = WatchedVideo.query.filter_by(user_id=user_db_id)\
+                                           .order_by(WatchedVideo.watched_at.desc())\
+                                           .all()
+        videos_data = [{
+            'id': video.id,
+            'video_id': video.video_id,
+            'video_title': video.video_title,
+            'watched_at': video.watched_at.isoformat()
+        } for video in watched_videos]
+
+        # Fetch All Notes and Extract Keywords
+        notes = Note.query.filter_by(user_id=user_db_id).all()
+        all_notes_keywords = []
+        if notes:
+            combined_text = " ".join([note.content for note in notes if note.content])
+            
+            if combined_text.strip(): # Ensure there is text to process
+                words = re.findall(r'\b\w+\b', combined_text.lower())
+                
+                stop_words = set(['the', 'a', 'is', 'to', 'of', 'and', 'in', 'it', 'this', 'that', 'for', 'on', 'with', 'was', 'as', 'by', 'be', 'are', 'has', 'have', 'not', 'an', 'or', 'but', 'if', 'my', 'your', 's', 't', 'can', 'will', 'just', 'do', 'we', 'me', 'so', 'what', 'how', 'when', 'where', 'why', 'which', 'who', 'video', 'youtube', 'summary', 'summaries', 'notes', 'note', 'content', 'point', 'points', 'key']) # Expanded stop words
+                
+                filtered_words = [word for word in words if word not in stop_words and len(word) >= 4]
+                
+                if filtered_words:
+                    word_counts = collections.Counter(filtered_words)
+                    # Get top 7 keywords (between 5 and 10)
+                    top_keywords = word_counts.most_common(7) 
+                    all_notes_keywords = [keyword[0] for keyword in top_keywords]
+        
+        logger.info(f"Returning mind map data for user {user_db_id}. Videos: {len(videos_data)}, Keywords: {all_notes_keywords}")
+        return jsonify({
+            "videos": videos_data,
+            "all_notes_keywords": all_notes_keywords
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Unexpected error in get_mind_map_data: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

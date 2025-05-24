@@ -198,7 +198,7 @@ function createSummaryContainer() {
     }
     
     // Debug what elements we found
-    console.log('DOM Elements found:', {
+    console.log('DOM Elements found:', { // Existing log
         secondary: !!secondary,
         related: !!related,
         secondaryInner: !!secondaryInner,
@@ -211,6 +211,12 @@ function createSummaryContainer() {
         secondaryInnerTop: !!secondaryInnerTop,
         watchNextTop: !!watchNextTop
     });
+
+    // Log status of crucial insertion points
+    console.log('YouTube Summary - Insertion Point Check: watchNextTop found:', !!watchNextTop);
+    console.log('YouTube Summary - Insertion Point Check: adSlot found:', !!adSlot);
+    console.log('YouTube Summary - Insertion Point Check: secondaryInnerTop found:', !!secondaryInnerTop);
+    console.log('YouTube Summary - Insertion Point Check: recommendedVideos found:', !!recommendedVideos);
     
     // Always have a fallback method that's guaranteed to work
     let insertionSuccessful = false;
@@ -238,7 +244,7 @@ function createSummaryContainer() {
         }
         // Second priority: Try to replace an ad if found
         else if (adSlot) {
-            console.log('Replacing ad with summary!', adSlot);
+            console.log('YouTube Summary: Attempting to replace ad element with summary box. Ad element:', adSlot);
             const adParent = adSlot.parentNode;
             
             // Get the ad's styles to match its position
@@ -312,11 +318,11 @@ function createSummaryContainer() {
     }
     
     // Use different approach - DOM mutation to force top position
-    if (!insertionSuccessful) {
-        console.warn('Using observer-based insertion to ensure top position');
+    if (!insertionSuccessful && !window.ytSummaryInserted) { // Check window.ytSummaryInserted here for clarity
+        console.warn('YouTube Summary: Standard insertion points failed or ytSummaryInserted flag not set. Attempting observer-based top insertion.');
         
         // Set up a flag to track the insertion
-        window.ytSummaryInserted = false;
+        // window.ytSummaryInserted = false; // Already done in initializeSummary
         
         // Create a wrapper div with YouTube styling
         const wrapper = document.createElement('div');
@@ -376,7 +382,7 @@ function createSummaryContainer() {
     
     // Fallback to fixed positioning if all else fails or errors occur
     if (!insertionSuccessful) {
-        console.warn('No insertion point worked, using fixed positioning');
+        console.warn('YouTube Summary: All preferred summary box insertion points failed. Falling back to fixed positioning. This might be due to ad blocker interference or YouTube UI changes.');
         document.body.appendChild(container);
         container.style.position = 'fixed';
         container.style.top = '80px';
@@ -657,6 +663,11 @@ async function fetchAndDisplaySummary() {
 function initializeSummary() {
     if (window.location.href.includes('youtube.com/watch')) {
         console.log('Initializing summary for YouTube video');
+
+        // Check for core YouTube layout elements
+        if (!document.querySelector('#secondary') && !document.querySelector('#related') && !document.querySelector('ytd-watch-next-secondary-results-renderer')) {
+            console.warn('YouTube Summary Extension: Key YouTube page elements (e.g., #secondary, #related, ytd-watch-next-secondary-results-renderer) not found. This could be due to an ad blocker or a significant YouTube UI update. Summary box placement might be affected or fallback to a fixed position.');
+        }
         
         // Reset our insertion flag
         window.ytSummaryInserted = false;
@@ -927,8 +938,18 @@ async function fetchAndDisplayNotes(videoId, notesDisplayContainer) {
                 noteElement.style.marginBottom = '8px';
                 noteElement.style.borderRadius = '4px';
                 noteElement.style.backgroundColor = isDarkMode ? '#2b2b2b' : '#f9f9f9';
-                noteElement.textContent = note.content; 
-                // Later: Add created_at, edit/delete buttons
+                
+                const contentP = document.createElement('p');
+                contentP.textContent = note.content;
+                contentP.style.margin = '0 0 5px 0'; // Add some margin below content
+                noteElement.appendChild(contentP);
+
+                const timestampP = document.createElement('p');
+                timestampP.style.fontSize = '0.8em';
+                timestampP.style.color = isDarkMode ? '#aaa' : '#777';
+                timestampP.textContent = `Created: ${new Date(note.created_at).toUTCString()} | Updated: ${new Date(note.updated_at).toUTCString()}`;
+                noteElement.appendChild(timestampP);
+                
                 notesDisplayContainer.appendChild(noteElement);
             });
         }
