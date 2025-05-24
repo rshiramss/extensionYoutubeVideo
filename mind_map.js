@@ -63,47 +63,64 @@ function getOrCreateUser() {
     });
 }
 
-// Fetch Watched Videos Function
-async function fetchWatchedVideos() {
+// Fetch Mind Map Data Function (renamed and updated)
+async function fetchMindMapData() {
     if (!databaseUserId) {
-        console.error('Cannot fetch watched videos: databaseUserId is not available.');
-        displayError('User not identified. Cannot fetch video history.');
+        console.error('Cannot fetch mind map data: databaseUserId is not available.');
+        displayError('User not identified. Cannot fetch mind map data.');
         return null;
     }
 
-    console.log('Fetching watched videos for user:', databaseUserId);
+    console.log('Fetching mind map data for user:', databaseUserId);
     try {
-        const response = await fetch(`${serverUrl}/users/${databaseUserId}/watched_videos`);
+        const response = await fetch(`${serverUrl}/users/${databaseUserId}/mind_map_data`);
         if (!response.ok) {
             const errorData = await response.json();
-            console.error('Error fetching watched videos:', response.status, errorData);
-            displayError(`Error loading video history: ${errorData.error || response.statusText}`);
+            console.error('Error fetching mind map data:', response.status, errorData);
+            displayError(`Error loading mind map data: ${errorData.error || response.statusText}`);
             return null;
         }
-        const videos = await response.json();
-        console.log('Fetched watched videos:', videos);
-        return videos;
+        const mindMapData = await response.json();
+        console.log('Fetched mind map data:', mindMapData);
+        return mindMapData; // Expects {"videos": [...], "all_notes_keywords": [...]}
     } catch (error) {
-        console.error('Fetch error while fetching watched videos:', error);
-        displayError('An unexpected error occurred while fetching video history.');
+        console.error('Fetch error while fetching mind map data:', error);
+        displayError('An unexpected error occurred while fetching mind map data.');
         return null;
     }
 }
 
-// Transform Data to Markdown for Markmap
-function transformVideosToMarkdown(videos) {
-    if (!videos || videos.length === 0) {
-        return "# My Watched Videos\n- No videos watched yet.";
+// Transform Data to Markdown for Markmap (renamed and updated)
+function transformMindMapDataToMarkdown(data) {
+    let markdown = "";
+
+    // Videos Section
+    if (data && data.videos && data.videos.length > 0) {
+        markdown += "# My Watched Videos\n";
+        data.videos.forEach(video => {
+            const title = video.video_title || video.video_id; // Fallback to video_id if title is missing
+            const videoUrl = `https://www.youtube.com/watch?v=${video.video_id}`;
+            markdown += `## [${title} (ID: ${video.video_id})](${videoUrl})\n`;
+            markdown += `### Watched: ${new Date(video.watched_at).toLocaleString()}\n`;
+        });
+    } else {
+        markdown += "# My Watched Videos\n- No videos watched yet.\n";
     }
 
-    let markdown = "# My Watched Videos\n";
-    videos.forEach(video => {
-        const title = video.video_title || video.video_id; // Fallback to video_id if title is missing
-        const videoUrl = `https://www.youtube.com/watch?v=${video.video_id}`;
-        markdown += `## [${title} (ID: ${video.video_id})](${videoUrl})\n`;
-        markdown += `### Watched: ${new Date(video.watched_at).toLocaleString()}\n`;
-    });
-    return markdown;
+    // Keywords Section
+    if (data && data.all_notes_keywords && data.all_notes_keywords.length > 0) {
+        markdown += "\n# Common Keywords from Notes\n"; // Add a newline for separation
+        data.all_notes_keywords.forEach(keyword => {
+            markdown += `## ${keyword}\n`;
+        });
+    }
+    
+    // If both are empty or data is null, Markmap will handle an empty string,
+    // or we can return a specific message.
+    // For now, if both are empty, the videos section will show "No videos watched yet."
+    // and keywords section will be absent.
+
+    return markdown.trim() === "" ? "# Mind Map\n- No data available." : markdown;
 }
 
 // Render Mind Map Function
@@ -115,6 +132,20 @@ function renderMindMap(markdownData) {
     }
     // Clear any previous messages or content
     mindmapContainer.innerHTML = ''; 
+
+    // Library loading checks
+    if (typeof window.d3 === 'undefined') {
+        console.error('D3.js library not loaded.');
+        displayError('Error: D3.js library could not be loaded. Mind map cannot be rendered. Please check your internet connection and ensure content security policies are not blocking cdn.jsdelivr.net.');
+        return;
+    }
+    if (typeof window.markmap === 'undefined' ||
+        typeof window.markmap.Markmap === 'undefined' ||
+        typeof window.markmap.Transformer === 'undefined') {
+        console.error('Markmap libraries not loaded properly.');
+        displayError('Error: Markmap libraries could not be loaded. Mind map cannot be rendered. Please check your internet connection and ensure content security policies are not blocking cdn.jsdelivr.net.');
+        return;
+    }
 
     try {
         const { Markmap, Transformer } = window.markmap;
@@ -158,21 +189,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     displayMessage('Initializing and identifying user...');
     try {
         await getOrCreateUser();
-        displayMessage('Fetching your video history...');
-        const videos = await fetchWatchedVideos();
+        displayMessage('Fetching data for your mind map...');
+        const mindMapData = await fetchMindMapData();
 
-        if (videos && videos.length > 0) {
-            const markdown = transformVideosToMarkdown(videos);
-            renderMindMap(markdown);
-        } else if (videos) { // videos is an empty array
-            console.log('No video history found.');
-            displayMessage('No video history found to display.');
-        } else { // videos is null (error occurred in fetchWatchedVideos)
-            // Error message is already displayed by fetchWatchedVideos or getOrCreateUser
-            console.log('Failed to load video history.');
+        if (mindMapData) {
+            // Check if there's any actual data to display
+            const hasVideos = mindMapData.videos && mindMapData.videos.length > 0;
+            const hasKeywords = mindMapData.all_notes_keywords && mindMapData.all_notes_keywords.length > 0;
+
+            if (hasVideos || hasKeywords) {
+                const markdown = transformMindMapDataToMarkdown(mindMapData);
+                renderMindMap(markdown);
+            } else {
+                console.log('No videos or keywords found for the mind map.');
+                displayMessage('No data available to display in the mind map (no videos or keywords found).');
+            }
+        } else { 
+            // Error message is already displayed by fetchMindMapData or getOrCreateUser
+            console.log('Failed to load mind map data.');
+            // displayError('Could not load data for the mind map.'); // Redundant if fetchMindMapData shows error
         }
     } catch (error) {
         console.error('Initialization failed:', error);
-        // Error message is already displayed by getOrCreateUser
+        // Error message is likely already displayed by getOrCreateUser
     }
 });
