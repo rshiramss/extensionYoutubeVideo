@@ -1,0 +1,66 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+#all-notes-container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 10px;
+}
+
+.note-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.note-content {
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    white-space: pre-wrap; /* Respect newlines in the note */
+}
+
+.note-video {
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.note-video a {
+    color: #065fd4;
+    text-decoration: none;
+}
+
+.note-video a:hover {
+    text-decoration: underline;
+}
+
+.note-timestamps {
+    font-size: 0.8em;
+    color: #666;
+}
+
+.error-message {
+    color: #d9534f; /* Bootstrap's danger color */
+    font-weight: bold;
+}
+
+/* Basic responsive design */
+@media (max-width: 600px) {
+    body {
+        margin: 10px;
+    }
+    #all-notes-container {
+        padding: 0;
+    }
+}

@@ -1,105 +1,75 @@
-/* filepath: /Users/rishits/Documents/extensionYoutubeVideo/styles.css */
-.yt-summary-container {
-    background: #212121; /* Dark theme background */
-    border: 1px solid #383838; /* Dark border */
-    border-radius: 8px; /* Rounded corners */
-    padding: 16px;
-    margin: 16px 0; /* Margin above/below */
-    font-family: 'Roboto', Arial, sans-serif;
-    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.3); /* Stronger shadow for dark theme */
-    width: 100%; /* Full width */
-    color: #fff; /* White text for dark theme */
+/* General styles for the notes section */
+.yt-notes-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    /* border-top will be set dynamically in JS based on theme */
 }
 
-/* Light theme fallback */
-html[light] .yt-summary-container {
-    background: #f9f9f9;
-    color: #0f0f0f;
-    border: 1px solid #e0e0e0;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+.yt-notes-section h3 {
+    /* font-size, font-weight, color, margin-bottom set dynamically in JS */
+    margin-bottom: 10px; /* Ensure some space below heading */
 }
 
-.yt-summary-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #383838; /* Darker border for dark theme */
-}
-
-html[light] .yt-summary-header {
-    border-bottom: 1px solid #e5e5e5;
-}
-
-.yt-summary-title {
-    font-size: 16px;
-    font-weight: 500;
-    color: #fff; /* White text for dark theme */
-}
-
-html[light] .yt-summary-title {
-    color: #0f0f0f;
-}
-
-.yt-summary-content {
-    font-size: 14px;
-    line-height: 1.5;
-    color: #aaa; /* Light gray text for dark theme */
-}
-
-html[light] .yt-summary-content {
-    color: #606060;
-}
-
-.yt-summary-point {
-    margin-bottom: 10px;
-    padding: 10px;
-    background: #2d2d2d; /* Dark background for points */
+/* Styling for the note input textarea */
+#video-note-input {
+    width: 100%;
+    min-height: 70px;
+    margin-bottom: 8px;
+    padding: 8px;
     border-radius: 4px;
-    border: 1px solid #383838;
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    font-family: inherit; /* Use YouTube's font */
+    font-size: 13px;
+    /* border, background-color, color set dynamically in JS */
 }
 
-html[light] .yt-summary-point {
-    background: #ffffff;
-    border: 1px solid #efefef;
-}
-
-.yt-summary-timestamp {
-    color: #3ea6ff; /* Blue for timestamps in dark theme */
-    font-weight: 500;
+/* Styling for the save note button */
+#save-video-note-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
-    display: inline-block;
-    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 13px;
+    /* background-color, color set dynamically in JS */
 }
 
-html[light] .yt-summary-timestamp {
-    color: #065fd4;
+#save-video-note-btn:hover {
+    opacity: 0.9;
 }
 
-.yt-summary-timestamp:hover {
-    text-decoration: underline;
+/* Styling for the container that displays the list of notes */
+#video-notes-display {
+    margin-top: 15px;
 }
 
-.yt-summary-loading {
-    text-align: center;
-    padding: 20px;
-    color: #aaa;
-}
-
-html[light] .yt-summary-loading {
-    color: #606060;
-}
-
-.yt-summary-error {
-    color: #ff6e6e;
-    padding: 12px;
-    background: rgba(255, 0, 0, 0.1);
+/* Styling for each individual note item */
+.yt-individual-note {
+    padding: 10px;
+    margin-bottom: 8px;
     border-radius: 4px;
-    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    /* border, background-color set dynamically in JS */
+    word-wrap: break-word; /* Ensure long words don't overflow */
 }
 
-html[light] .yt-summary-error {
-    color: #cc0000;
-    background: #ffebee;
+/* Helper styles for messages within the notes display area */
+#video-notes-display p {
+    font-size: 13px;
+    /* color for placeholder text like "No notes..." or errors set dynamically in JS */
+}
+
+/* Dark mode specific adjustments if needed, though most are handled in JS */
+/* For example, if we wanted a universal scrollbar style for dark mode */
+body[dark] #video-note-input, 
+html[dark] #video-note-input {
+    /* Example: specific scrollbar for dark mode if needed */
+    /* scrollbar-color: #555 #222; */
+}
+
+body[dark] .yt-individual-note,
+html[dark] .yt-individual-note {
+    /* Example: slightly different shadow or property for dark mode notes */
+    /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); */
 }
