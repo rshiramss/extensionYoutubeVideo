@@ -3,4 +3,5 @@ google-generativeai
 python-dotenv
 flask
 flask-cors
+Flask-SQLAlchemy
 cairosvg 

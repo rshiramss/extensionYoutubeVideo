@@ -1,4 +1,12 @@
 // filepath: /Users/rishits/Documents/extensionYoutubeVideo/content.js
+
+// Global variables for user identification
+let clientGeneratedUserId = null;
+let databaseUserId = null;
+
+// Define the server URL globally
+const serverUrl = 'http://127.0.0.1:8000';
+
 // Get current video information
 function getCurrentVideoInfo() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -509,18 +517,9 @@ async function fetchAndDisplaySummary() {
     
     try {
         console.log('Fetching summary for video:', videoId);
-        
-        // Define the server URL - could be moved to a config variable if needed
-        const serverUrl = 'http://127.0.0.1:8000';
-        
-        // Test server connection first
-        try {
-            const testResponse = await fetch(`${serverUrl}/`);
-            console.log('Server connection test:', testResponse.status);
-        } catch (testError) {
-            console.error('Server connection test failed:', testError.message);
-            throw new Error('Cannot connect to summary server. Please make sure the server is running on port 8000.');
-        }
+
+        // Test server connection first (already done in checkServerStatus, but good to have as a pre-check if called independently)
+        // For now, we assume checkServerStatus has already run.
 
         // Fetch summary from backend
         const response = await fetch(`${serverUrl}/summarize`, {
@@ -582,6 +581,18 @@ async function fetchAndDisplaySummary() {
                 handleTimestampClick(element.dataset.timestamp);
             });
         });
+
+        // Create and display notes section
+        createNotesSection(contentDiv, videoId); // Pass contentDiv and videoId
+        // Fetch and display existing notes
+        const notesDisplayContainer = document.getElementById('video-notes-display');
+        if (notesDisplayContainer) {
+            fetchAndDisplayNotes(videoId, notesDisplayContainer);
+        }
+
+        // Log watched video
+        logWatchedVideo(videoId);
+
 
     } catch (error) {
         console.error('Error in fetchAndDisplaySummary:', error);
@@ -707,7 +718,7 @@ observer.observe(document, { subtree: true, childList: true });
 // Check if server is running
 async function checkServerStatus() {
     try {
-        const serverUrl = 'http://127.0.0.1:8000';
+        // const serverUrl = 'http://127.0.0.1:8000'; // Already global
         const response = await fetch(`${serverUrl}/`);
         console.log('Server status check:', response.status);
         return response.ok;
@@ -717,17 +728,254 @@ async function checkServerStatus() {
     }
 }
 
+// Get or create user
+function getOrCreateUser() {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.get(['clientGeneratedUserId'], async (result) => {
+            if (chrome.runtime.lastError) {
+                console.error('Error getting clientGeneratedUserId from storage:', chrome.runtime.lastError);
+                reject(chrome.runtime.lastError);
+                return;
+            }
+
+            if (result.clientGeneratedUserId) {
+                clientGeneratedUserId = result.clientGeneratedUserId;
+                console.log('Retrieved clientGeneratedUserId from storage:', clientGeneratedUserId);
+            } else {
+                clientGeneratedUserId = crypto.randomUUID();
+                console.log('Generated new clientGeneratedUserId:', clientGeneratedUserId);
+                chrome.storage.local.set({ clientGeneratedUserId: clientGeneratedUserId }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error saving clientGeneratedUserId to storage:', chrome.runtime.lastError);
+                        // Continue without rejecting, as we have an in-memory ID
+                    } else {
+                        console.log('Saved new clientGeneratedUserId to storage.');
+                    }
+                });
+            }
+
+            // Now call the backend
+            try {
+                const response = await fetch(`${serverUrl}/get_or_create_user`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ client_generated_user_id: clientGeneratedUserId }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.user_id) {
+                        databaseUserId = data.user_id;
+                        console.log('User identified/created. Client ID:', clientGeneratedUserId, 'DB ID:', databaseUserId);
+                        resolve(); // Resolve the promise when user identification is complete
+                    } else {
+                        console.error('Error: user_id not found in backend response', data);
+                        reject('Error: user_id not found in backend response');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('Error calling /get_or_create_user:', response.status, errorText);
+                    reject(`Server error: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                console.error('Fetch error in getOrCreateUser:', error);
+                reject(error);
+            }
+        });
+    });
+}
+
+
 // Initialize on page load
 console.log('YouTube Summary Extension loaded!');
 
-// Check server status first and then initialize
-checkServerStatus().then(isServerRunning => {
-    if (isServerRunning) {
-        console.log('Server is running, initializing extension');
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeSummary);
+
+// Function to create the notes section UI
+function createNotesSection(parentContainer, videoId) {
+    console.log('Creating notes section for video:', videoId);
+    const isDarkMode = detectYouTubeDarkMode();
+
+    const notesSectionContainer = document.createElement('div');
+    notesSectionContainer.className = 'yt-notes-section';
+    notesSectionContainer.style.marginTop = '20px';
+    notesSectionContainer.style.paddingTop = '15px';
+    notesSectionContainer.style.borderTop = `1px solid ${isDarkMode ? '#383838' : '#e5e5e5'}`;
+
+    const heading = document.createElement('h3');
+    heading.textContent = 'My Notes for this Video';
+    heading.style.fontSize = '15px';
+    heading.style.fontWeight = '500';
+    heading.style.color = isDarkMode ? '#fff' : '#0f0f0f';
+    heading.style.marginBottom = '10px';
+    notesSectionContainer.appendChild(heading);
+
+    const textarea = document.createElement('textarea');
+    textarea.id = 'video-note-input';
+    textarea.placeholder = 'Type your note here...';
+    // Basic styling will be in styles.css, but some defaults here
+    textarea.style.width = '100%';
+    textarea.style.minHeight = '70px';
+    textarea.style.marginBottom = '8px';
+    textarea.style.padding = '8px';
+    textarea.style.border = `1px solid ${isDarkMode ? '#555' : '#ccc'}`;
+    textarea.style.borderRadius = '4px';
+    textarea.style.backgroundColor = isDarkMode ? '#222' : '#fff';
+    textarea.style.color = isDarkMode ? '#eee' : '#111';
+    notesSectionContainer.appendChild(textarea);
+
+    const saveButton = document.createElement('button');
+    saveButton.id = 'save-video-note-btn';
+    saveButton.textContent = 'Save Note';
+    // Basic styling will be in styles.css
+    saveButton.style.padding = '8px 12px';
+    saveButton.style.border = 'none';
+    saveButton.style.borderRadius = '4px';
+    saveButton.style.backgroundColor = isDarkMode ? '#3ea6ff' : '#065fd4';
+    saveButton.style.color = 'white';
+    saveButton.style.cursor = 'pointer';
+    notesSectionContainer.appendChild(saveButton);
+    
+    const notesDisplay = document.createElement('div');
+    notesDisplay.id = 'video-notes-display';
+    notesDisplay.style.marginTop = '15px';
+    notesSectionContainer.appendChild(notesDisplay);
+
+    parentContainer.appendChild(notesSectionContainer);
+
+    // Event Listener for Save Note button
+    saveButton.addEventListener('click', async () => {
+        const noteContent = textarea.value.trim();
+        if (!noteContent) {
+            alert('Note content cannot be empty.');
+            return;
+        }
+
+        if (!databaseUserId) {
+            console.error('Cannot save note: databaseUserId is not available.');
+            alert('Error: User not identified. Cannot save note.');
+            return;
+        }
+        if (!clientGeneratedUserId) {
+             console.error('Cannot save note: clientGeneratedUserId is not available. This is needed for potential future authorization checks even if not directly used in this specific POST.');
+            // alert('Error: Client user ID not available. Cannot save note.'); // Less critical for this specific endpoint but good to be aware
+        }
+
+
+        try {
+            const response = await fetch(`${serverUrl}/users/${databaseUserId}/notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_id: videoId,
+                    content: noteContent,
+                }),
+            });
+
+            if (response.status === 201) {
+                textarea.value = ''; // Clear textarea
+                console.log('Note saved successfully.');
+                fetchAndDisplayNotes(videoId, notesDisplay); // Refresh notes display
+                logWatchedVideo(videoId); // Log watched video after saving a note
+            } else {
+                const errorData = await response.json();
+                console.error('Error saving note:', response.status, errorData);
+                alert(`Error saving note: ${errorData.error || response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Fetch error while saving note:', error);
+            alert('An unexpected error occurred while saving the note.');
+        }
+    });
+}
+
+// Function to fetch and display notes
+async function fetchAndDisplayNotes(videoId, notesDisplayContainer) {
+    if (!databaseUserId) {
+        console.log('Cannot fetch notes: databaseUserId is not available.');
+        notesDisplayContainer.innerHTML = '<p style="font-style: italic; color: #888;">User not identified. Notes cannot be loaded or saved.</p>';
+        return;
+    }
+
+    console.log(`Fetching notes for video: ${videoId}, user: ${databaseUserId}`);
+    try {
+        const response = await fetch(`${serverUrl}/users/${databaseUserId}/notes_by_video/${videoId}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error fetching notes:', response.status, errorData);
+            notesDisplayContainer.innerHTML = `<p style="color: #ff6e6e;">Error loading notes: ${errorData.error || response.statusText}</p>`;
+            return;
+        }
+
+        const notes = await response.json();
+        notesDisplayContainer.innerHTML = ''; // Clear previous notes
+
+        if (notes.length === 0) {
+            notesDisplayContainer.innerHTML = '<p style="font-style: italic; color: #888;">No notes for this video yet.</p>';
         } else {
-            initializeSummary();
+            const isDarkMode = detectYouTubeDarkMode();
+            notes.forEach(note => {
+                const noteElement = document.createElement('div');
+                noteElement.className = 'yt-individual-note';
+                // Basic styling here, more in styles.css
+                noteElement.style.padding = '8px';
+                noteElement.style.border = `1px solid ${isDarkMode ? '#444' : '#ddd'}`;
+                noteElement.style.marginBottom = '8px';
+                noteElement.style.borderRadius = '4px';
+                noteElement.style.backgroundColor = isDarkMode ? '#2b2b2b' : '#f9f9f9';
+                noteElement.textContent = note.content; 
+                // Later: Add created_at, edit/delete buttons
+                notesDisplayContainer.appendChild(noteElement);
+            });
+        }
+    } catch (error) {
+        console.error('Fetch error while fetching notes:', error);
+        notesDisplayContainer.innerHTML = '<p style="color: #ff6e6e;">An unexpected error occurred while fetching notes.</p>';
+    }
+}
+
+
+// Check server status first and then initialize
+checkServerStatus().then(async isServerRunning => { // Made this async
+    if (isServerRunning) {
+        console.log('Server is running, proceeding with user identification and extension initialization');
+        try {
+            await getOrCreateUser(); // Wait for user identification
+            console.log('User identification successful. DB ID:', databaseUserId);
+            // Proceed with initialization that depends on user ID
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializeSummary);
+            } else {
+                initializeSummary();
+            }
+        } catch (error) {
+            console.error('Failed to get or create user:', error);
+            // Display a user-facing error message about user identification failure
+            const notification = document.createElement('div');
+            notification.style.position = 'fixed';
+            notification.style.top = '10px';
+            notification.style.right = '10px';
+            notification.style.backgroundColor = '#ffebee'; // Red background for error
+            notification.style.color = '#cc0000'; // Dark red text
+            notification.style.padding = '10px';
+            notification.style.borderRadius = '4px';
+            notification.style.zIndex = '99999';
+            notification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+            notification.innerHTML = `YouTube Summary: Could not identify user. Notes functionality may be affected. Error: ${error.message || error}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 10000);
+            // Decide if you want to initializeSummary or not if user identification fails.
+            // For now, let's proceed with summary but notes will not work.
+            // Or you could choose to not initializeSummary if user ID is critical for all features.
+            if (document.readyState === 'loading') {
+                 document.addEventListener('DOMContentLoaded', initializeSummary);
+            } else {
+                 initializeSummary();
+            }
         }
     } else {
         console.warn('Server is not running, extension will not summarize videos');
