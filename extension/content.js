@@ -1,9 +1,5 @@
 // filepath: /Users/rishits/Documents/extensionYoutubeVideo/content.js
 
-// Global variables for user identification
-let clientGeneratedUserId = null;
-let databaseUserId = null;
-
 // Define the server URL globally
 const serverUrl = 'http://127.0.0.1:8000';
 
