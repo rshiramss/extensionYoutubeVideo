@@ -82,16 +82,76 @@ def summarize():
         logger.info(f"Processing video ID: {video_id}")
         
         try:
-            # Get transcript
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-            logger.info(f"Successfully retrieved transcript for video {video_id}")
+            # First try to get available transcripts to see what's available
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            available_languages = []
+            manual_transcripts = []
+            auto_transcripts = []
+            
+            for transcript_info in transcript_list:
+                available_languages.append(transcript_info.language_code)
+                if transcript_info.is_generated:
+                    auto_transcripts.append(transcript_info.language_code)
+                else:
+                    manual_transcripts.append(transcript_info.language_code)
+            
+            logger.info(f"Available transcripts for video {video_id}: {available_languages}")
+            logger.info(f"Manual transcripts: {manual_transcripts}")
+            logger.info(f"Auto-generated transcripts: {auto_transcripts}")
+            
+            # Try to get transcript in order of preference
+            transcript = None
+            used_language = None
+            
+            # First try manual English transcripts
+            for lang in ['en', 'en-US', 'en-GB']:
+                if lang in manual_transcripts:
+                    try:
+                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[lang])
+                        used_language = lang
+                        logger.info(f"Using manual transcript in: {lang}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to get manual transcript in {lang}: {e}")
+            
+            # Then try auto-generated English transcripts
+            if not transcript:
+                for lang in ['en', 'en-US', 'en-GB']:
+                    if lang in auto_transcripts:
+                        try:
+                            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[lang])
+                            used_language = lang
+                            logger.info(f"Using auto-generated transcript in: {lang}")
+                            break
+                        except Exception as e:
+                            logger.warning(f"Failed to get auto-generated transcript in {lang}: {e}")
+            
+            # Finally try any available transcript
+            if not transcript and available_languages:
+                for lang in available_languages:
+                    try:
+                        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[lang])
+                        used_language = lang
+                        logger.info(f"Using transcript in: {lang}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to get transcript in {lang}: {e}")
+            
+            if not transcript:
+                logger.error(f"Failed to retrieve any transcript despite available languages: {available_languages}")
+                return jsonify({'error': 'No usable transcript found for this video'}), 400
+                
+            logger.info(f"Successfully retrieved transcript for video {video_id} in language {used_language}")
         except TranscriptsDisabled:
             return jsonify({'error': 'Transcripts are disabled for this video'}), 400
         except NoTranscriptFound:
             return jsonify({'error': 'No transcript found for this video'}), 400
         except Exception as e:
-            logger.error(f"Error getting transcript: {str(e)}")
-            return jsonify({'error': f'Error getting transcript: {str(e)}'}), 500
+            error_msg = str(e)
+            if "no element found" in error_msg.lower():
+                return jsonify({'error': 'This video does not have captions available or captions are corrupted'}), 400
+            logger.error(f"Error getting transcript: {error_msg}")
+            return jsonify({'error': f'Error getting transcript: {error_msg}'}), 500
         
         # Generate summary
         try:

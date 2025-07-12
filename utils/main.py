@@ -9,7 +9,7 @@ load_dotenv()
 
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-genai.configure(api_key="AIzaSyAmNU0u0GdMkZggJ7PUxho1gJUpIXgPC4E")
+genai.configure(api_key="AIzaSyBxxnamB82ERJPkQaRURmxTn7JMKSUs16M")
 
 def format_time(seconds):
     """
