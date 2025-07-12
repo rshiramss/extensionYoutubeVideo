@@ -3,6 +3,36 @@
 // Define the server URL globally
 const serverUrl = 'http://127.0.0.1:8000';
 
+// Define global variables for user management
+let clientGeneratedUserId = null;
+let databaseUserId = null;
+
+// Function to log watched videos
+async function logWatchedVideo(videoId) {
+    if (!databaseUserId) {
+        console.log('Cannot log watched video: databaseUserId is not available.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${serverUrl}/users/${databaseUserId}/watched_videos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ video_id: videoId }),
+        });
+        
+        if (response.ok) {
+            console.log('Watched video logged successfully.');
+        } else {
+            console.error('Error logging watched video:', response.status);
+        }
+    } catch (error) {
+        console.error('Fetch error while logging watched video:', error);
+    }
+}
+
 // Using shared utilities - functions are now available from shared-utils.js
 
 // Create and inject the summary container
