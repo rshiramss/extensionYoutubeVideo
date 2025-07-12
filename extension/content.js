@@ -7,22 +7,7 @@ let databaseUserId = null;
 // Define the server URL globally
 const serverUrl = 'http://127.0.0.1:8000';
 
-// Get current video information
-function getCurrentVideoInfo() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const videoId = urlParams.get('v');
-    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    return { videoId, videoUrl };
-}
-
-// Detect YouTube theme
-function detectYouTubeDarkMode() {
-    return document.documentElement.getAttribute('dark') === 'true' || 
-           document.querySelector('html[dark]') !== null ||
-           document.querySelector('ytd-app')?.hasAttribute('dark') ||
-           document.body.classList.contains('dark') ||
-           window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
+// Using shared utilities - functions are now available from shared-utils.js
 
 // Create and inject the summary container
 function createSummaryContainer() {
@@ -31,25 +16,18 @@ function createSummaryContainer() {
     const container = document.createElement('div');
     container.className = 'yt-summary-container';
     
-    // Get theme
-    const isDarkMode = detectYouTubeDarkMode();
+    // Get theme using shared utility
+    const themeStyles = getThemeStyles();
+    const isDarkMode = themeStyles.isDarkMode;
     console.log('YouTube dark mode detected:', isDarkMode);
     
-    // Apply theme-appropriate styles with increased visibility and top position styling
-    if (isDarkMode) {
-        container.style.backgroundColor = '#1a1a1a';
-        container.style.border = '2px solid #3ea6ff'; // Bright YouTube blue border in dark mode
-        container.style.color = '#fff';
-        // No left border - we'll use a top border instead to indicate "top content"
-    } else {
-        container.style.backgroundColor = '#f9f9f9';
-        container.style.border = '2px solid #065fd4'; // YouTube blue border in light mode
-        container.style.color = '#0f0f0f';
-        // No left border - we'll use a top border instead to indicate "top content"
-    }
+    // Apply theme-appropriate styles using shared utility
+    container.style.backgroundColor = themeStyles.backgroundColor;
+    container.style.border = `2px solid ${themeStyles.borderColor}`;
+    container.style.color = themeStyles.textColor;
     
     // Add a top border to clearly indicate this is at the top of recommendations
-    container.style.borderTop = isDarkMode ? '5px solid #3ea6ff' : '5px solid #065fd4';
+    container.style.borderTop = `5px solid ${themeStyles.borderColor}`;
     
     // Enhanced basic styles for better visibility
     container.style.borderRadius = '8px';
@@ -65,10 +43,10 @@ function createSummaryContainer() {
     container.style.position = 'relative';
     container.style.zIndex = '50'; // Ensure it's above most YouTube elements
     
-    // Header styling
-    const headerBorderColor = isDarkMode ? '#383838' : '#e5e5e5';
-    const titleColor = isDarkMode ? '#fff' : '#0f0f0f';
-    const loadingColor = isDarkMode ? '#aaa' : '#606060';
+    // Header styling using theme styles
+    const headerBorderColor = themeStyles.headerBorderColor;
+    const titleColor = themeStyles.textColor;
+    const loadingColor = themeStyles.loadingColor;
     
     // Build container HTML
     container.innerHTML = `
