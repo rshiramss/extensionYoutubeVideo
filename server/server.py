@@ -3,6 +3,8 @@ from flask_cors import CORS
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import google.generativeai as genai
 import os
+import sqlite3
+from datetime import datetime
 from dotenv import load_dotenv
 import logging
 
@@ -20,13 +22,87 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Load environment variables
 load_dotenv()
 
-# Configure Gemini API
+# Configure Gemini API with better error handling
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not GEMINI_API_KEY:
-    logger.error("No GEMINI_API_KEY found in environment. Please set it in .env file or environment variables.")
+    logger.error("="*60)
+    logger.error("CRITICAL: No GEMINI_API_KEY found!")
+    logger.error("Please follow these steps:")
+    logger.error("1. Get a free API key from: https://makersuite.google.com/app/apikey")
+    logger.error("2. Create a .env file in the server/ directory")
+    logger.error("3. Add this line: GEMINI_API_KEY=your_actual_api_key_here")
+    logger.error("4. Restart the server")
+    logger.error("="*60)
     exit(1)
 
-genai.configure(api_key=GEMINI_API_KEY)
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    # Test the API key by trying to create a model
+    test_model = genai.GenerativeModel('gemini-1.5-flash')
+    logger.info("✅ Gemini API key configured successfully")
+except Exception as e:
+    logger.error("="*60)
+    logger.error(f"CRITICAL: Invalid Gemini API key! Error: {e}")
+    logger.error("Please check your GEMINI_API_KEY in the .env file")
+    logger.error("Get a new key from: https://makersuite.google.com/app/apikey")
+    logger.error("="*60)
+    exit(1)
+
+# Database setup for notes and user management
+DB_FILE = 'youtube_extension_notes.db'
+
+def init_database():
+    """Initialize the database with users, videos, and notes tables"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    # Create users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_generated_user_id TEXT UNIQUE NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create videos table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_id TEXT UNIQUE NOT NULL,
+            title TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create notes table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            video_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # Create watched_videos table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS watched_videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            video_id TEXT NOT NULL,
+            watched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE(user_id, video_id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    logger.info("Database initialized successfully")
 
 def format_time(seconds):
     minutes = int(seconds // 60)
@@ -66,7 +142,12 @@ Focus on main topics, important statements, and significant transitions in the v
 
 @app.route('/')
 def test():
-    return jsonify({"status": "ok", "message": "YouTube Summarizer Server is running"})
+    return jsonify({
+        "status": "ok", 
+        "message": "YouTube Summarizer Server is running",
+        "features": ["video_summarization", "user_notes", "watch_history"],
+        "api_key_status": "configured" if GEMINI_API_KEY else "missing"
+    })
 
 @app.route('/summarize', methods=['POST'])
 def summarize():
@@ -171,7 +252,139 @@ def summarize():
         logger.error(f"Unexpected error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/get_or_create_user', methods=['POST'])
+def get_or_create_user():
+    try:
+        data = request.get_json()
+        if not data or 'client_generated_user_id' not in data:
+            return jsonify({'error': 'client_generated_user_id is required'}), 400
+        
+        client_generated_user_id = data['client_generated_user_id']
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        # Check if user exists
+        cursor.execute('SELECT id FROM users WHERE client_generated_user_id = ?', (client_generated_user_id,))
+        user = cursor.fetchone()
+        
+        if user:
+            user_id = user[0]
+            logger.info(f"Found existing user with ID: {user_id}")
+        else:
+            # Create new user
+            cursor.execute('INSERT INTO users (client_generated_user_id) VALUES (?)', (client_generated_user_id,))
+            user_id = cursor.lastrowid
+            logger.info(f"Created new user with ID: {user_id}")
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'user_id': user_id}), 200
+    except Exception as e:
+        logger.error(f"Error in get_or_create_user: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/users/<int:user_id>/notes', methods=['POST'])
+def save_note(user_id):
+    try:
+        data = request.get_json()
+        if not data or 'video_id' not in data or 'content' not in data:
+            return jsonify({'error': 'video_id and content are required'}), 400
+        
+        video_id = data['video_id']
+        content = data['content']
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        # Verify user exists
+        cursor.execute('SELECT id FROM users WHERE id = ?', (user_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Insert note
+        cursor.execute('''
+            INSERT INTO notes (user_id, video_id, content) 
+            VALUES (?, ?, ?)
+        ''', (user_id, video_id, content))
+        
+        note_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Saved note {note_id} for user {user_id}, video {video_id}")
+        return jsonify({'note_id': note_id}), 201
+    except Exception as e:
+        logger.error(f"Error saving note: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/users/<int:user_id>/notes_by_video/<video_id>', methods=['GET'])
+def get_notes_by_video(user_id, video_id):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, content, created_at, updated_at 
+            FROM notes 
+            WHERE user_id = ? AND video_id = ?
+            ORDER BY created_at DESC
+        ''', (user_id, video_id))
+        
+        notes = []
+        for row in cursor.fetchall():
+            notes.append({
+                'id': row[0],
+                'content': row[1],
+                'created_at': row[2],
+                'updated_at': row[3]
+            })
+        
+        conn.close()
+        return jsonify(notes), 200
+    except Exception as e:
+        logger.error(f"Error getting notes: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/users/<int:user_id>/watched_videos', methods=['POST'])
+def log_watched_video(user_id):
+    try:
+        data = request.get_json()
+        if not data or 'video_id' not in data:
+            return jsonify({'error': 'video_id is required'}), 400
+        
+        video_id = data['video_id']
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        # Insert or update watched video record
+        cursor.execute('''
+            INSERT OR REPLACE INTO watched_videos (user_id, video_id, watched_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        ''', (user_id, video_id))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Logged watched video {video_id} for user {user_id}")
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        logger.error(f"Error logging watched video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    logger.info(f"Starting YouTube Summarizer server on port {PORT}...")
-    logger.info("This server provides video summarization only")
+    logger.info("="*60)
+    logger.info("🚀 Starting YouTube Summarizer Server")
+    logger.info("="*60)
+    
+    # Initialize database
+    init_database()
+    
+    logger.info(f"📡 Server starting on port {PORT}...")
+    logger.info("📊 Features: Video summarization, User notes, Watch history")
+    logger.info("🔑 Gemini API: Configured and tested")
+    logger.info("="*60)
+    
     app.run(host='0.0.0.0', port=PORT, debug=True)

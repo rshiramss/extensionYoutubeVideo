@@ -7,9 +7,21 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Configure Gemini API
+# Configure Gemini API securely
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-genai.configure(api_key="AIzaSyBxxnamB82ERJPkQaRURmxTn7JMKSUs16M")
+if not GEMINI_API_KEY:
+    print("ERROR: No GEMINI_API_KEY found in environment variables!")
+    print("Please create a .env file with: GEMINI_API_KEY=your_api_key_here")
+    print("Get your API key from: https://makersuite.google.com/app/apikey")
+    exit(1)
+
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    print("✅ Gemini API key configured successfully")
+except Exception as e:
+    print(f"❌ Error configuring Gemini API: {e}")
+    print("Please check your API key is valid")
+    exit(1)
 
 def format_time(seconds):
     """
@@ -72,7 +84,15 @@ def get_transcript_with_timestamps(video_url):
     """
     try:
         video_id = extract_video_id(video_url)
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        print(f"Extracting transcript for video ID: {video_id}")
+        
+        # Try to get transcript with error handling
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        except Exception as transcript_error:
+            print(f"Error getting transcript: {transcript_error}")
+            print("Make sure the video has captions available.")
+            return
         
         print("\n=== Video Transcript with Timestamps ===\n")
         for entry in transcript:
@@ -89,6 +109,9 @@ def get_transcript_with_timestamps(video_url):
     except Exception as e:
         print(f"Error: {e}")
 
-# Example usage
-video_url = input("Enter YouTube Video URL: ")
-get_transcript_with_timestamps(video_url)
+if __name__ == "__main__":
+    # Example usage
+    print("YouTube Video Summarizer")
+    print("=" * 40)
+    video_url = input("Enter YouTube Video URL: ")
+    get_transcript_with_timestamps(video_url)
